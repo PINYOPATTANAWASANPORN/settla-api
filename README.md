@@ -1,14 +1,31 @@
-# LocalSettle API
+# Settla API
 
-LocalSettle is a peer-to-peer marketplace that connects local payment methods with USDC settlement on Stellar. This repository contains the NestJS API: it manages accounts, offers, orders, chat, payment evidence, wallet-authenticated sessions, transaction preparation, and escrow coordination. The Next.js client is maintained in the [LocalSettle frontend repository](https://github.com/Local-Settle/local-settle-frontend).
+![CI](https://github.com/Settla-Labs/settla-api/actions/workflows/ci-cd.yml/badge.svg)
+![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
+![Stellar](https://img.shields.io/badge/Stellar-Soroban-7D00FF?logo=stellar&logoColor=white)
+
+Settla is a peer-to-peer marketplace that connects local payment methods with USDC settlement on Stellar. This repository contains the NestJS API: it manages accounts, offers, orders, chat, payment evidence, wallet-authenticated sessions, transaction preparation, and escrow coordination. The Next.js client is maintained in the [Settla frontend repository](https://github.com/Settla/settla-frontend).
 
 > **Network status:** configuration defaults to Stellar Testnet and the Trustless Work development API. Testnet assets have no real-world value. Configure production services, network, issuer, and secrets deliberately before any mainnet deployment.
+
+## Table of Contents
+
+- [What the API does](#what-the-api-does)
+- [Stellar transaction flows](#stellar-transaction-flows)
+- [Architecture](#architecture)
+- [Prerequisites](#prerequisites)
+- [Run locally](#run-locally)
+- [Useful API routes](#useful-api-routes)
+- [Development checks](#development-checks)
+- [Environment variables](#environment-variables)
+- [Contributing to the Stellar ecosystem](#contributing-to-the-stellar-ecosystem)
+- [Security](#security)
 
 ## What the API does
 
 - Authenticates Stellar wallet owners by issuing a one-time challenge, verifying the wallet signature, and issuing a JWT.
 - Reads Stellar accounts, balances, and payment history through Horizon.
-- Resolves a recipient address or LocalSettle alias and prepares an unsigned USDC payment transaction for the user to sign.
+- Resolves a recipient address or Settla alias and prepares an unsigned USDC payment transaction for the user to sign.
 - Coordinates order lifecycle, payment details, chat, KYC status, receipt uploads, and audit events.
 - Integrates with Trustless Work to deploy and operate USDC multi-release escrow on Soroban, and polls Soroban RPC for contract events.
 
@@ -20,7 +37,7 @@ LocalSettle is a peer-to-peer marketplace that connects local payment methods wi
 
 ### Direct USDC payment
 
-The authenticated client calls `GET /send/resolve` for a Stellar address or LocalSettle alias, then `POST /send/prepare`. The API reads recipient account information, builds an unsigned Stellar transaction XDR, and returns it for review. The client asks the user's wallet to sign. `POST /send/submit` broadcasts the signed XDR through Horizon and returns the transaction result.
+The authenticated client calls `GET /send/resolve` for a Stellar address or Settla alias, then `POST /send/prepare`. The API reads recipient account information, builds an unsigned Stellar transaction XDR, and returns it for review. The client asks the user's wallet to sign. `POST /send/submit` broadcasts the signed XDR through Horizon and returns the transaction result.
 
 ### Peer-to-peer escrow
 
@@ -30,8 +47,8 @@ The API opens a Trustless Work multi-release escrow for an order. It signs and b
 sequenceDiagram
     participant Buyer
     participant Seller
-    participant Web as LocalSettle frontend
-    participant API as LocalSettle API
+    participant Web as Settla frontend
+    participant API as Settla API
     participant TW as Trustless Work
     participant Soroban as Stellar Soroban
     Seller->>Web: Create or accept trade
@@ -56,7 +73,7 @@ sequenceDiagram
 | --- | --- |
 | USDC transfer and escrow contract state | Stellar network; escrow operations are orchestrated through Trustless Work |
 | Wallet challenge and user transaction signatures | User-selected wallet, requested by the frontend |
-| Offers, orders, aliases, chat, KYC status, and audit records | LocalSettle API and PostgreSQL |
+| Offers, orders, aliases, chat, KYC status, and audit records | Settla API and PostgreSQL |
 | Payment evidence files | Configured storage provider (Google Cloud Storage or mock provider) |
 | Local bank or cash payment | Directly between the marketplace participants, outside Stellar |
 
@@ -73,6 +90,14 @@ Escrow is currently limited to USDC. The backend holds a separate configured ope
 The API uses `@stellar/stellar-sdk` for Horizon account and transaction operations. Soroban contract events are read from RPC. PostgreSQL stores application workflow state; it is not a substitute for reading the on-chain contract state.
 
 Protocol references: [Stellar developer documentation](https://developers.stellar.org/docs), [Horizon API guide](https://developers.stellar.org/docs/data/apis/horizon), and [Stellar RPC methods](https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods).
+
+## Prerequisites
+
+| Tool | Notes |
+| --- | --- |
+| **Node.js** | 20+ and npm |
+| **PostgreSQL** | via `DATABASE_URL` |
+| **Docker** | optional, for the local stack |
 
 ## Run locally
 
@@ -111,9 +136,22 @@ npm run format      # Format TypeScript source and tests
 
 Unit tests use Jest `*.spec.ts` files near the implementation. Add regression coverage for authentication, transaction preparation, escrow transitions, access control, and event processing when changing those areas.
 
+## Environment variables
+
+Copy `.env.example` to `.env` and fill in your values (see the file for inline docs). Key groups:
+
+| Variable group | Key variables |
+| --- | --- |
+| Identity / KYC | `DIDIT_API_KEY`, `DIDIT_WEBHOOK_SECRET`, `DIDIT_API_URL`, `DIDIT_WORKFLOW_ID`, `KYC_CALLBACK_URL` |
+| Stellar | `STELLAR_HORIZON_URL`, `STELLAR_RPC_URL`, `STELLAR_NETWORK`, `STELLAR_SIGNER_SECRET`, `STELLAR_LISTENER_POLL_INTERVAL_MS` |
+| Database | `DATABASE_URL`, `DIRECT_URL` |
+| Auth | `JWT_SECRET` |
+| Escrow contract | `TRUSTLESS_WORK_CONTRACT_ID`, `TRUSTLESS_WORK_USDC_ISSUER`, `TRUSTLESS_WORK_API_URL` |
+| Platform economics | `IKASH_TREASURY_ADDRESS`, `IKASH_PLATFORM_FEE`, `SEND_CRYPTO_FEE_PERCENT` |
+
 ## Contributing to the Stellar ecosystem
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, security, commit, and pull request expectations. Keep API changes coordinated with the [frontend](https://github.com/Local-Settle/local-settle-frontend). Explain the affected user flow and include tests, migrations, or environment changes in your pull request. Drips Wave repository participation requires applying to the relevant program and organizer approval; see the [Drips maintainer guide](https://docs.drips.network/wave/maintainers/participating-in-a-wave/).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, security, commit, and pull request expectations. Keep API changes coordinated with the [frontend](https://github.com/Settla/settla-frontend). Explain the affected user flow and include tests, migrations, or environment changes in your pull request. Drips Wave repository participation requires applying to the relevant program and organizer approval; see the [Drips maintainer guide](https://docs.drips.network/wave/maintainers/participating-in-a-wave/).
 
 ## Security
 
@@ -121,4 +159,4 @@ Never commit or log private keys, JWTs, webhook secrets, full bank details, or i
 
 ## License
 
-LocalSettle is licensed under the MIT License. See [LICENSE](LICENSE).
+Settla is licensed under the MIT License. See [LICENSE](LICENSE).
